@@ -11,6 +11,7 @@ from string import ascii_uppercase
 import emoji
 from flask import Flask, render_template, request, session, redirect, url_for, jsonify
 import bcrypt  
+from datetime import datetime, timedelta
 
 
 users = {}
@@ -21,6 +22,10 @@ app.config["UPLOAD_FOLDER"] = "uploads"
 os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
 app.config["LOGS_FOLDER"] = "logs"
 os.makedirs(app.config["LOGS_FOLDER"], exist_ok=True)
+
+failed_attempts = {}  # Tracks failed attempts per username
+LOCKOUT_TIME = 60    # Lockout duration in seconds 
+MAX_ATTEMPTS = 3      # Maximum failed attempts before lockout
 
 
 socketio = SocketIO(app)
@@ -212,18 +217,50 @@ def login():
         username = request.form.get("username")
         password = request.form.get("password")
 
+        # Check if the user is currently locked out
+        if username in failed_attempts:
+            lockout_info = failed_attempts[username]
+
+            # Enforce lockout period if required
+            if lockout_info.get("lockout_until") and datetime.now() < lockout_info["lockout_until"]:
+                remaining_time = (lockout_info["lockout_until"] - datetime.now()).seconds
+                print(f"🚫 {username} is locked out. Remaining time: {remaining_time} seconds")
+                return render_template("login.html", error=f"Too many failed attempts. Try again in {remaining_time} seconds.")
+
+        # User does not exist
         if username not in users:
+            print(f"❌ Attempted login with non-existent user: {username}")
             return render_template("login.html", error="User does not exist.")
 
-        # Verify hashed password
+        # Incorrect password logic
         if not bcrypt.checkpw(password.encode('utf-8'), users[username]["password"]):
+            print(f"❌ Incorrect password for user: {username}")
+
+            # Track failed attempts
+            if username not in failed_attempts:
+                failed_attempts[username] = {"attempts": 1, "lockout_until": None}
+            else:
+                failed_attempts[username]["attempts"] += 1
+
+            # Lock user out if max attempts are reached
+            if failed_attempts[username]["attempts"] >= MAX_ATTEMPTS:
+                failed_attempts[username]["lockout_until"] = datetime.now() + timedelta(seconds=LOCKOUT_TIME)
+                print(f"🚨 {username} has been locked out for {LOCKOUT_TIME} seconds")
+                return render_template("login.html", error=f"Too many failed attempts. Try again in {LOCKOUT_TIME // 60} minutes.")
+
             return render_template("login.html", error="Incorrect password.")
 
+        # Successful login
         session["username"] = username
-        print(f"✅ User logged in: {username}")
+        if username in failed_attempts:
+            del failed_attempts[username]  # Reset failed attempts on successful login
+
+        print(f"✅ Successful login for {username}")
         return redirect(url_for("home"))
 
     return render_template("login.html")
+
+
 
 
 @app.route("/logout")
