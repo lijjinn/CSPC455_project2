@@ -1,17 +1,38 @@
-<form method="POST" class="buttons">
-    <h3>Enter The Chat Room</h3>
-    <div>
-      <label>Name:</label>
-      <input type="text" placeholder="Pick a name!" name="name" required />
-    </div>
-    <div class="join">
-      <input type="text" placeholder="Room Code" name="code" />
-      <button type="submit" name="join" value="Join">Join a Room</button>
-    </div>
-    <button type="submit" name="create" value="CreateRoom" class="create-btn">Create a Room</button>
-    {% if error %}
-    <ul>
-      <li>{{ error }}</li>
-    </ul>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Chat App - Home</title>
+</head>
+<body>
+    {% if "username" not in session %}
+        <p>Already have an account? <a href="/login">Login here</a></p>
+        <p>Don't have an account? <a href="/register">Register here</a></p>
+    {% else %}
+        <h2>Welcome, {{ session['username'] }}!</h2>
+
+        <form method="POST" class="buttons">
+            <h3>Enter The Chat Room</h3>
+            <div>
+                <label>Name:</label>
+                <input type="text" placeholder="Pick a name!" name="name" required />
+            </div>
+            <div class="join">
+                <input type="text" placeholder="Room Code" name="code" />
+                <button type="submit" name="join" value="Join">Join a Room</button>
+            </div>
+            <button type="submit" name="create" value="CreateRoom" class="create-btn">Create a Room</button>
+
+            {% if error %}
+            <ul>
+                <li>{{ error }}</li>
+            </ul>
+            {% endif %}
+        </form>
+
+        <form action="/logout" method="GET">
+            <button type="submit">Logout</button>
+        </form>
     {% endif %}
-  </form>
+</body>
+</html>
+

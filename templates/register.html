@@ -12,15 +12,19 @@
         <label>Password:</label>
         <input type="password" name="password" required>
         <br>
-        <button type="submit">Register</button> <!-- Register Button -->
+        <button type="submit">Register</button>
     </form>
 
     {% if error %}
-    <p style="color:red;">{{ error }}</p>
+    <p style="color: red;">{{ error }}</p>
     {% endif %}
 
     <p>Already have an account? <a href="/login">Login here</a></p>
 </body>
 </html>
+
+
+
+
 
 

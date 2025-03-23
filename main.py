@@ -51,9 +51,8 @@ TIME_WINDOW = 10
 
 @app.route("/", methods=["POST", "GET"])
 def home():
-    # Check if the user is logged in
     if "username" not in session:
-        return redirect(url_for("login"))
+        return redirect(url_for("login"))  # Redirect to login if user is not authenticated
 
     if request.method == "POST":
         name = request.form.get("name")
@@ -80,6 +79,7 @@ def home():
         return redirect(url_for("room"))
 
     return render_template("home.html")
+
 
 
 @app.route("/room")
