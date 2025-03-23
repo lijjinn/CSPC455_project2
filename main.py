@@ -9,8 +9,11 @@ import re
 from collections import defaultdict
 from string import ascii_uppercase
 import emoji
+from flask import Flask, render_template, request, session, redirect, url_for, jsonify
+import bcrypt  
 
 
+users = {}
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "hjhjsdahhds"
@@ -48,7 +51,10 @@ TIME_WINDOW = 10
 
 @app.route("/", methods=["POST", "GET"])
 def home():
-    session.clear()
+    # Check if the user is logged in
+    if "username" not in session:
+        return redirect(url_for("login"))
+
     if request.method == "POST":
         name = request.form.get("name")
         code = request.form.get("code")
@@ -74,6 +80,7 @@ def home():
         return redirect(url_for("room"))
 
     return render_template("home.html")
+
 
 @app.route("/room")
 def room():
@@ -174,6 +181,58 @@ def log_message(room, message):
     
     with open(log_file, "a", encoding='utf-8') as log:
         log.write(f"{message}\n")
+        
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    if request.method == "POST":
+        username = request.form.get("username")
+        password = request.form.get("password")
+
+        if not username or not password:
+            return render_template("register.html", error="Please fill out both fields.")
+
+        if username in users:
+            return render_template("register.html", error="Username already exists.")
+
+        # Hash password before storing
+        hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+        users[username] = {"password": hashed_password}
+
+        print(f"✅ Registered User: {username}")
+        return redirect(url_for("login"))
+
+    return render_template("register.html")
+
+
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        username = request.form.get("username")
+        password = request.form.get("password")
+
+        if username not in users:
+            return render_template("login.html", error="User does not exist.")
+
+        # Verify hashed password
+        if not bcrypt.checkpw(password.encode('utf-8'), users[username]["password"]):
+            return render_template("login.html", error="Incorrect password.")
+
+        session["username"] = username
+        print(f"✅ User logged in: {username}")
+        return redirect(url_for("home"))
+
+    return render_template("login.html")
+
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    print("✅ User logged out.")
+    return redirect(url_for("login"))
+
+
 
 if __name__ == "__main__":
     print("🚀 Server is starting... Visit http://localhost:8080")
