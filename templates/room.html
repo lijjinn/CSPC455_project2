@@ -1,0 +1,71 @@
+{% extends 'base.html' %} {% block content %}
+<div class="message-box">
+  <h2>Chat Room: {{code}}</h2>
+  <div class="messages" id="messages"></div>
+
+  <div class="inputs">
+    <div class="emoji-container">
+      <emoji-picker id="emoji-picker" style="display:none;"></emoji-picker>
+      <button onclick="toggleEmojiPicker()">😀</button>
+    </div>
+
+    <input
+      type="text"
+      rows="3"
+      placeholder="Message"
+      name="message"
+      id="message"
+    />
+    <button type="button" name="send" id="send-btn" onClick="sendMessage()">
+      Send
+    </button>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/emoji-picker-element"></script>
+<script type="text/javascript">
+  var socketio = io();
+
+  const messages = document.getElementById("messages");
+  const emojiPicker = document.getElementById("emoji-picker");
+  const messageInput = document.getElementById("message");
+
+  const createMessage = (name, msg) => {
+    const content = `
+    <div class="text">
+        <span>
+            <strong>${name}</strong>: ${msg}
+        </span>
+        <span class="muted">
+            ${new Date().toLocaleString()}
+        </span>
+    </div>
+    `;
+    messages.innerHTML += content;
+  };
+
+  emojiPicker.addEventListener('emoji-click', event => {
+      messageInput.value += event.detail.unicode;
+  });
+
+  function toggleEmojiPicker() {
+      emojiPicker.style.display = emojiPicker.style.display === 'none' ? 'block' : 'none';
+  }
+
+  socketio.on("message", (data) => {
+    createMessage(data.name, data.message);
+  });
+
+  const sendMessage = () => {
+    const message = document.getElementById("message");
+    if (message.value == "") return;
+    socketio.emit("message", { data: message.value });
+    message.value = "";
+  };
+</script>
+
+{% for msg in messages %}
+<script type="text/javascript">
+  createMessage("{{msg.name}}", "{{msg.message}}");
+</script>
+{% endfor %} {% endblock %}
