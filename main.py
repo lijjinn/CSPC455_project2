@@ -10,12 +10,28 @@ from collections import defaultdict
 from string import ascii_uppercase
 import emoji
 
+
+
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "hjhjsdahhds"
 app.config["UPLOAD_FOLDER"] = "uploads"
 os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
 
 socketio = SocketIO(app)
+
+
+def format_message(message):
+    # Emoji Conversion
+    message = emoji.emojize(message, language='alias')
+
+    # Bold and Italics
+    message = re.sub(r"\*\*(.*?)\*\*", r"<b>\1</b>", message)  # **Bold**
+    message = re.sub(r"\*(?!\*)(.*?)\*", r"<i>\1</i>", message)  # *Italics*
+
+    # Links
+    message = re.sub(r"\[(.*?)\]\((.*?)\)", r'<a href="\2" target="_blank">\1</a>', message)
+
+    return message
 
 # AES-256 Encryption Setup
 ENCRYPTION_KEY = Fernet.generate_key()
@@ -71,10 +87,14 @@ def message(data):
     if room not in rooms:
         return
 
-    content = {"name": name, "message": data["data"]}
+    formatted_message = format_message(data["data"])
+    content = {"name": name, "message": formatted_message}
+
     send(content, to=room)
     rooms[room]["messages"].append(content)
+
     print(f"{name} said: {data['data']}")
+
 
 @socketio.on("connect")
 def connect(auth):
