@@ -16,6 +16,9 @@ app = Flask(__name__)
 app.config["SECRET_KEY"] = "hjhjsdahhds"
 app.config["UPLOAD_FOLDER"] = "uploads"
 os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
+app.config["LOGS_FOLDER"] = "logs"
+os.makedirs(app.config["LOGS_FOLDER"], exist_ok=True)
+
 
 socketio = SocketIO(app)
 
@@ -93,7 +96,11 @@ def message(data):
     send(content, to=room)
     rooms[room]["messages"].append(content)
 
+    log_entry = f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {name}: {data['data']}"
+    log_message(room, log_entry)
+
     print(f"{name} said: {data['data']}")
+
 
 
 @socketio.on("connect")
@@ -160,6 +167,13 @@ def download_file(filename):
         decrypted_file.write(decrypted_data)
 
     return send_from_directory(app.config["UPLOAD_FOLDER"], f"decrypted_{filename}")
+
+def log_message(room, message):
+    timestamp = time.strftime('%Y-%m-%d_%H-%M-%S')
+    log_file = os.path.join(app.config["LOGS_FOLDER"], f"{room}_{timestamp}.txt")
+    
+    with open(log_file, "a", encoding='utf-8') as log:
+        log.write(f"{message}\n")
 
 if __name__ == "__main__":
     print("🚀 Server is starting... Visit http://localhost:8080")
