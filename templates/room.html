@@ -19,6 +19,11 @@
     <button type="button" name="send" id="send-btn" onClick="sendMessage()">
       Send
     </button>
+
+    <form id="file-upload-form" enctype="multipart/form-data">
+      <input type="file" id="file-input" name="file" />
+      <button type="button" onclick="uploadFile()">Upload File</button>
+    </form>
   </div>
 </div>
 
@@ -62,6 +67,32 @@
     socketio.emit("message", { data: message.value });
     message.value = "";
   };
+
+  function uploadFile() {
+    const fileInput = document.getElementById("file-input");
+    const file = fileInput.files[0];
+
+    if (!file) {
+        alert("Please select a file to upload.");
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    fetch('/upload', {
+        method: "POST",
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            socketio.emit("message", { data: `📎 <a href="${data.file_url}" target="_blank">${data.file_name}</a>` });
+        } else {
+            alert("File upload failed.");
+        }
+    });
+  }
 </script>
 
 {% for msg in messages %}

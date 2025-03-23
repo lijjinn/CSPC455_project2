@@ -1,40 +1,31 @@
-from flask import Flask, render_template, request, session, redirect, url_for
+from flask import Flask, render_template, request, session, redirect, url_for, send_from_directory, jsonify
+from werkzeug.utils import secure_filename
 from flask_socketio import join_room, leave_room, send, SocketIO
+from cryptography.fernet import Fernet
+import os
 import random
 import time
 import re
 from collections import defaultdict
 from string import ascii_uppercase
-import emoji  # Emoji support for text formatting
+import emoji
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "hjhjsdahhds"
+app.config["UPLOAD_FOLDER"] = "uploads"
+os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
+
 socketio = SocketIO(app)
 
+# AES-256 Encryption Setup
+ENCRYPTION_KEY = Fernet.generate_key()
+cipher = Fernet(ENCRYPTION_KEY)
+
 rooms = {}
-user_message_times = defaultdict(list)  # Store message timestamps per user
+user_message_times = defaultdict(list)
 
-MESSAGE_LIMIT = 5  # Max messages per time window
-TIME_WINDOW = 10  # Time window in seconds
-
-def generate_unique_code(length):
-    while True:
-        code = "".join(random.choice(ascii_uppercase) for _ in range(length))
-        if code not in rooms:
-            return code
-
-def format_message(message):
-    # Emoji Conversion
-    message = emoji.emojize(message, language='alias')
-
-    # Bold and Italics
-    message = re.sub(r"\*\*(.*?)\*\*", r"<b>\1</b>", message)
-    message = re.sub(r"\*(.*?)\*", r"<i>\1</i>", message)
-
-    # Links
-    message = re.sub(r"\[(.*?)\]\((.*?)\)", r'<a href="\2" target="_blank">\1</a>', message)
-
-    return message
+MESSAGE_LIMIT = 5
+TIME_WINDOW = 10
 
 @app.route("/", methods=["POST", "GET"])
 def home():
@@ -48,14 +39,12 @@ def home():
         if not name:
             return render_template("home.html", error="Please enter a name.", code=code, name=name)
 
-        if join == "Join" and not code:
-            return render_template("home.html", error="Please enter a room code.", code=code, name=name)
-
         if create == "CreateRoom":
-            room = generate_unique_code(4)
+            room = "".join(random.choices(ascii_uppercase, k=4))
             rooms[room] = {"members": 1, "messages": []}
             session["room"] = room
             session["name"] = name
+            print(f"✅ Room created: {room}. Redirecting to /room")
             return redirect(url_for("room"))
 
         if code not in rooms:
@@ -82,22 +71,10 @@ def message(data):
     if room not in rooms:
         return
 
-    now = time.time()
-    timestamps = user_message_times[name]
-
-    # Remove old timestamps outside the TIME_WINDOW
-    timestamps = [t for t in timestamps if now - t < TIME_WINDOW]
-    user_message_times[name] = timestamps
-
-    if len(timestamps) >= MESSAGE_LIMIT:
-        send({"name": "Server", "message": "Rate limit exceeded. Please wait a moment."}, to=room)
-        return
-
-    user_message_times[name].append(now)  # Add new message timestamp
-    formatted_message = format_message(data["data"])
-    content = {"name": name, "message": formatted_message}
+    content = {"name": name, "message": data["data"]}
     send(content, to=room)
     rooms[room]["messages"].append(content)
+    print(f"{name} said: {data['data']}")
 
 @socketio.on("connect")
 def connect(auth):
@@ -112,6 +89,7 @@ def connect(auth):
     join_room(room)
     send({"name": name, "message": "has entered the room"}, to=room)
     rooms[room]["members"] += 1
+    print(f"{name} joined room {room}")
 
 @socketio.on("disconnect")
 def disconnect():
@@ -125,8 +103,44 @@ def disconnect():
             del rooms[room]
 
     send({"name": name, "message": "has left the room"}, to=room)
+    print(f"{name} has left the room {room}")
+
+# Secure File Upload Route
+@app.route("/upload", methods=["POST"])
+def upload_file():
+    if "file" not in request.files:
+        return jsonify({"success": False, "error": "No file part"})
+
+    file = request.files["file"]
+    if file.filename == "":
+        return jsonify({"success": False, "error": "No selected file"})
+
+    filename = secure_filename(file.filename)
+    file_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
+
+    # Encrypt file content
+    encrypted_data = cipher.encrypt(file.read())
+    with open(file_path, "wb") as f:
+        f.write(encrypted_data)
+
+    file_url = f"/download/{filename}"
+    return jsonify({"success": True, "file_url": file_url, "file_name": filename})
+
+# File Download Route (with Decryption)
+@app.route("/download/<filename>")
+def download_file(filename):
+    file_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
+
+    # Decrypt the file before sending
+    with open(file_path, "rb") as f:
+        decrypted_data = cipher.decrypt(f.read())
+
+    decrypted_file_path = os.path.join(app.config["UPLOAD_FOLDER"], f"decrypted_{filename}")
+    with open(decrypted_file_path, "wb") as decrypted_file:
+        decrypted_file.write(decrypted_data)
+
+    return send_from_directory(app.config["UPLOAD_FOLDER"], f"decrypted_{filename}")
 
 if __name__ == "__main__":
-    print(" Server is starting... Visit http://localhost:8080")
+    print("🚀 Server is starting... Visit http://localhost:8080")
     socketio.run(app, host='0.0.0.0', port=8080, debug=True)
-
