@@ -1,6 +1,7 @@
 ### User Guide: Real-Time Chat Application
 
 Overview: 
+
 Welcome to the Real-Time DM Chat Application! This secure messaging platform allows you to connect directly with other users through private conversations. The app features secure message exchange, encrypted file uploads, and a user-friendly interface.
 
 ## Features
