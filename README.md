@@ -10,6 +10,7 @@ Welcome to the Real-Time DM Chat Application! This secure messaging platform all
 - **Connection notifications** – Get notified when a user joins or leaves a chat room.
 - **WebSocket communication** – Real-time message updates powered by Flask-SocketIO.
 - **Secure file sharing** – Encrypted file transfers using AES-256 encryption for enhanced security.
+- **Encrypted Chat Logs** – All chat logs are securely encrypted to ensure privacy and prevent data leaks.
 - **Rate limiting** – Users can send up to 5 messages within 10 seconds to prevent spam.
 - **Brute Force Protection** – Account lockout occurs after 3 failed login attempts with a 60-second cooldown period to mitigate brute force attacks.
 
@@ -83,4 +84,6 @@ This ensures smooth messaging while preventing excessive spam.
 
 ## License
 This project is licensed under the MIT License.
+
+
 
