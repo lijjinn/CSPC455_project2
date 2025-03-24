@@ -19,16 +19,16 @@ os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
 app.config["LOGS_FOLDER"] = "logs"
 os.makedirs(app.config["LOGS_FOLDER"], exist_ok=True)
 
-# In-memory user store 
+# In-memory user store (username: {password: hashed})
 users = {}
 
-# In-memory conversation storage:
+
 
 conversations = defaultdict(list)
 # Track which conversation partners each user has
 user_conversations = defaultdict(set)
 
-# Rate limiting variables 
+# Rate limiting variables (if you need them for DMs as well)
 user_message_times = defaultdict(list)
 MESSAGE_LIMIT = 5
 TIME_WINDOW = 10
@@ -59,6 +59,8 @@ def log_message(room, message):
     log_file = os.path.join(app.config["LOGS_FOLDER"], f"{room}_{timestamp}.txt")
     with open(log_file, "a", encoding='utf-8') as log:
         log.write(f"{message}\n")
+
+
 
 # Login, logout, and registration remain mostly unchanged.
 failed_attempts = {}  # Tracks failed attempts per username
@@ -181,12 +183,12 @@ def on_connect(auth):
 def handle_message(data):
     if "username" not in session or "current_partner" not in session:
         return
-    
+
     current_user = session["username"]
     partner = session["current_partner"]
     room = get_dm_room(current_user, partner)
 
-    # Rate limiting 
+    # Rate limiting logic
     now = time.time()
     timestamps = user_message_times[current_user]
 
@@ -207,10 +209,12 @@ def handle_message(data):
     content = {"name": current_user, "message": formatted_message}
     send(content, to=room)
     conversations[room].append(content)
-    
+
     log_entry = f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {current_user}: {data['data']}"
     log_message(room, log_entry)
     print(f"{current_user} said: {data['data']} in DM with {partner}")
+
+
 
 @socketio.on("disconnect")
 def on_disconnect():
@@ -248,6 +252,57 @@ def download_file(filename):
     with open(decrypted_file_path, "wb") as decrypted_file:
         decrypted_file.write(decrypted_data)
     return send_from_directory(app.config["UPLOAD_FOLDER"], f"decrypted_{filename}")
+
+
+# AES-256 Encryption Setup
+ENCRYPTION_KEY = Fernet.generate_key()
+cipher = Fernet(ENCRYPTION_KEY)
+
+
+def log_message(room, message):
+    """
+    Encrypts the log message and writes it to a file.
+    The filename includes the room and a timestamp.
+    """
+    timestamp = time.strftime('%Y-%m-%d_%H-%M-%S')
+    log_file = os.path.join(app.config["LOGS_FOLDER"], f"{room}_{timestamp}.txt")
+    encrypted_message = cipher.encrypt(message.encode('utf-8')).decode('utf-8')
+    with open(log_file, "a", encoding='utf-8') as log:
+        log.write(f"{encrypted_message}\n")
+    print(f"Logged (encrypted) message to {log_file}")
+
+def read_log(log_file):
+    """
+    Reads the encrypted log file and decrypts each line.
+    Returns a list of decrypted log messages.
+    """
+    decrypted_lines = []
+    try:
+        with open(log_file, "r", encoding='utf-8') as log:
+            for line in log:
+                line = line.strip()
+                if line:
+                    try:
+                        decrypted_line = cipher.decrypt(line.encode('utf-8')).decode('utf-8')
+                        decrypted_lines.append(decrypted_line)
+                    except Exception as e:
+                        decrypted_lines.append(f"Decryption error: {str(e)}")
+    except FileNotFoundError:
+        decrypted_lines.append("Log file not found.")
+    return decrypted_lines
+
+
+@app.route("/view_log/<log_filename>")
+def view_log(log_filename):
+    """
+    Provide a route to view the decrypted contents of a log file.
+    The log_filename should be URL-safe.
+    """
+    log_file = os.path.join(app.config["LOGS_FOLDER"], log_filename)
+    decrypted_logs = read_log(log_file)
+    return render_template("view_log.html", log_filename=log_filename, logs=decrypted_logs)
+
+
 
 if __name__ == "__main__":
     print(" Server is starting... Visit http://localhost:8080")
