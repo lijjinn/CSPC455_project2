@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Chat with {{ partner }}</title>
+    <style>
+      /* Add basic styling if needed */
+      .message-box { max-width: 600px; margin: auto; }
+      .messages { border: 1px solid #ccc; height: 300px; overflow-y: scroll; padding: 10px; }
+      .inputs { margin-top: 10px; }
+      .text { margin-bottom: 5px; }
+      .muted { font-size: 0.8em; color: gray; margin-left: 10px; }
+    </style>
+</head>
+<body>
+    <div class="message-box">
+        <h2>Chat with {{ partner }}</h2>
+        <div class="messages" id="messages">
+            {% for msg in messages %}
+                <div class="text">
+                    <strong>{{ msg.name }}</strong>: {{ msg.message }}
+                    <span class="muted">{{ loop.index0 }}</span>
+                </div>
+            {% endfor %}
+        </div>
+        <div class="inputs">
+            <div class="emoji-container">
+                <emoji-picker id="emoji-picker" style="display:none;"></emoji-picker>
+                <button onclick="toggleEmojiPicker()">😀</button>
+            </div>
+            <input type="text" placeholder="Message" id="message" required />
+            <button type="button" id="send-btn" onClick="sendMessage()">Send</button>
+            <form id="file-upload-form" enctype="multipart/form-data">
+                <input type="file" id="file-input" name="file" />
+                <button type="button" onclick="uploadFile()">Upload File</button>
+            </form>
+        </div>
+        <p><a href="/">Back to Dashboard</a></p>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/emoji-picker-element"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.6.1/socket.io.min.js" integrity="sha512-..." crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script type="text/javascript">
+      var socketio = io();
+      const messagesDiv = document.getElementById("messages");
+      const emojiPicker = document.getElementById("emoji-picker");
+      const messageInput = document.getElementById("message");
+
+      function createMessage(name, msg) {
+          const div = document.createElement("div");
+          div.classList.add("text");
+          const timeSpan = document.createElement("span");
+          timeSpan.classList.add("muted");
+          timeSpan.textContent = new Date().toLocaleTimeString();
+          div.innerHTML = `<strong>${name}</strong>: ${msg} `;
+          div.appendChild(timeSpan);
+          messagesDiv.appendChild(div);
+          messagesDiv.scrollTop = messagesDiv.scrollHeight;
+      }
+
+      emojiPicker.addEventListener('emoji-click', event => {
+          messageInput.value += event.detail.unicode;
+      });
+
+      function toggleEmojiPicker() {
+          emojiPicker.style.display = (emojiPicker.style.display === 'none') ? 'block' : 'none';
+      }
+
+      socketio.on("message", (data) => {
+          createMessage(data.name, data.message);
+      });
+
+      function sendMessage() {
+          if (messageInput.value.trim() === "") return;
+          socketio.emit("message", { data: messageInput.value });
+          messageInput.value = "";
+      }
+
+      function uploadFile() {
+          const fileInput = document.getElementById("file-input");
+          const file = fileInput.files[0];
+          if (!file) {
+              alert("Please select a file to upload.");
+              return;
+          }
+          const formData = new FormData();
+          formData.append("file", file);
+          fetch('/upload', { method: "POST", body: formData })
+              .then(response => response.json())
+              .then(data => {
+                  if (data.success) {
+                      socketio.emit("message", { data: `📎 <a href="${data.file_url}" target="_blank">${data.file_name}</a>` });
+                  } else {
+                      alert("File upload failed.");
+                  }
+              });
+      }
+    </script>
+</body>
+</html>
