@@ -1,6 +1,6 @@
-User Guide: Real-Time DM Chat Application
+### User Guide: Real-Time Chat Application
 
-## Overview
+Overview: 
 Welcome to the Real-Time DM Chat Application! This secure messaging platform allows you to connect directly with other users through private conversations. The app features secure message exchange, encrypted file uploads, and a user-friendly interface.
 
 ## Features
@@ -88,6 +88,11 @@ This ensures smooth messaging while preventing excessive spam.
 
 ### Locked Out After Failed Attempts
 - Wait 60 seconds before trying to log in again.
+
+### License
+This project is licensed under the **MIT License**.
+
+* *used AI for formatting user guide* *
 
 
 
