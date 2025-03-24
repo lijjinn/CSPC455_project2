@@ -61,7 +61,7 @@ Ensure you have Python installed on your system.
 
 ### Sending Messages
 - Type a message in the chat field and click 'Send'.
-- Use the emoji picker for enhanced expression.
+- Double click mouse to use emoji for enhanced expression.
 
 ### Uploading Files
 - Use the "Upload File" button to securely send files with encryption.
